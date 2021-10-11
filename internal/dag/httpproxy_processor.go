@@ -181,22 +181,28 @@ func (p *HTTPProxyProcessor) computeHTTPProxy(proxy *contour_api_v1.HTTPProxy) {
 
 		// Attach secrets to TLS enabled vhosts.
 		if !tls.Passthrough {
-			secretName := k8s.NamespacedNameFrom(tls.SecretName, k8s.DefaultNamespace(proxy.Namespace))
-			sec, err := p.source.LookupSecret(secretName, validSecret)
-			if err != nil {
-				validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "SecretNotValid",
-					"Spec.VirtualHost.TLS Secret %q is invalid: %s", tls.SecretName, err)
-				return
-			}
-
-			if !p.source.DelegationPermitted(secretName, proxy.Namespace) {
-				validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "DelegationNotPermitted",
-					"Spec.VirtualHost.TLS Secret %q certificate delegation not permitted", tls.SecretName)
-				return
-			}
-
 			svhost := p.dag.EnsureSecureVirtualHost(ListenerName{Name: host, ListenerName: "ingress_https"})
-			svhost.Secret = sec
+			if !tls.EnableSDS {
+				secretName := k8s.NamespacedNameFrom(tls.SecretName, k8s.DefaultNamespace(proxy.Namespace))
+				sec, err := p.source.LookupSecret(secretName, validSecret)
+				if err != nil {
+					validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "SecretNotValid",
+						"Spec.VirtualHost.TLS Secret %q is invalid: %s", tls.SecretName, err)
+					return
+				}
+
+				if !p.source.DelegationPermitted(secretName, proxy.Namespace) {
+					validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "DelegationNotPermitted",
+						"Spec.VirtualHost.TLS Secret %q certificate delegation not permitted", tls.SecretName)
+					return
+				}
+				svhost.Secret = sec
+			} else {
+				svhost.Secret = &Secret{
+					SdsSecretName: tls.SecretName,
+				}
+			}
+
 			// default to a minimum TLS version of 1.2 if it's not specified
 			svhost.MinTLSVersion = annotation.MinTLSVersion(tls.MinimumProtocolVersion, "1.2")
 
@@ -226,20 +232,26 @@ func (p *HTTPProxyProcessor) computeHTTPProxy(proxy *contour_api_v1.HTTPProxy) {
 					return
 				}
 
-				sec, err = p.source.LookupSecret(*p.FallbackCertificate, validSecret)
-				if err != nil {
-					validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "FallbackNotValid",
-						"Spec.Virtualhost.TLS Secret %q fallback certificate is invalid: %s", p.FallbackCertificate, err)
-					return
-				}
+				if !tls.EnableSDS {
+					sec, err := p.source.LookupSecret(*p.FallbackCertificate, validSecret)
+					if err != nil {
+						validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "FallbackNotValid",
+							"Spec.Virtualhost.TLS Secret %q fallback certificate is invalid: %s", p.FallbackCertificate, err)
+						return
+					}
 
-				if !p.source.DelegationPermitted(*p.FallbackCertificate, proxy.Namespace) {
-					validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "FallbackNotDelegated",
-						"Spec.VirtualHost.TLS fallback Secret %q is not configured for certificate delegation", p.FallbackCertificate)
-					return
-				}
+					if !p.source.DelegationPermitted(*p.FallbackCertificate, proxy.Namespace) {
+						validCond.AddErrorf(contour_api_v1.ConditionTypeTLSError, "FallbackNotDelegated",
+							"Spec.VirtualHost.TLS fallback Secret %q is not configured for certificate delegation", p.FallbackCertificate)
+						return
+					}
+					svhost.FallbackCertificate = sec
+				} else {
+					svhost.FallbackCertificate = &Secret{
+						SdsSecretName: p.FallbackCertificate.Name,
+					}
 
-				svhost.FallbackCertificate = sec
+				}
 			}
 
 			// Fill in DownstreamValidation when external client validation is enabled.

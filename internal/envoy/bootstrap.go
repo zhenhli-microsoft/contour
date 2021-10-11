@@ -62,6 +62,18 @@ type BootstrapConfig struct {
 	// Defaults to "v3"
 	XDSResourceVersion config.ResourceVersion
 
+	// SDSAddress is the TCP address of the gRPC SDS server.
+	// Defaults to "" which means SDS is disabled.
+	SDSAddress string
+
+	// SDSGRPCPort is the management server port that provides the v3 gRPC API.
+	// Defaults to 8234.
+	SDSGRPCPort int
+
+	// SDSResourceVersion defines the SDS Server Version to use.
+	// Defaults to "v3"
+	SDSResourceVersion config.ResourceVersion
+
 	// Namespace is the namespace where Contour is running
 	Namespace string
 
@@ -94,6 +106,8 @@ type BootstrapConfig struct {
 
 func (c *BootstrapConfig) GetXdsAddress() string { return stringOrDefault(c.XDSAddress, "127.0.0.1") }
 func (c *BootstrapConfig) GetXdsGRPCPort() int   { return intOrDefault(c.XDSGRPCPort, 8001) }
+func (c *BootstrapConfig) GetSdsAddress() string { return stringOrDefault(c.SDSAddress, "") }
+func (c *BootstrapConfig) GetSdsGRPCPort() int   { return intOrDefault(c.SDSGRPCPort, 8234) }
 func (c *BootstrapConfig) GetAdminAddress() string {
 	return stringOrDefault(c.AdminAddress, "/admin/admin.sock")
 }

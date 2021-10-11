@@ -93,6 +93,28 @@ func validationContext(ca []byte, subjectName string, skipVerifyPeerCert bool) *
 
 // DownstreamTLSContext creates a new DownstreamTlsContext.
 func DownstreamTLSContext(serverSecret *dag.Secret, tlsMinProtoVersion envoy_v3_tls.TlsParameters_TlsProtocol, cipherSuites []string, peerValidationContext *dag.PeerValidationContext, alpnProtos ...string) *envoy_v3_tls.DownstreamTlsContext {
+	var configSource *envoy_api_v3_core.ConfigSource
+	if serverSecret.Object != nil {
+		configSource = ConfigSource("contour")
+	} else {
+		configSource = &envoy_api_v3_core.ConfigSource{
+			ResourceApiVersion: envoy_api_v3_core.ApiVersion_V3, //todo
+			ConfigSourceSpecifier: &envoy_api_v3_core.ConfigSource_ApiConfigSource{
+				&envoy_api_v3_core.ApiConfigSource{
+					ApiType:             envoy_api_v3_core.ApiConfigSource_GRPC,
+					TransportApiVersion: envoy_api_v3_core.ApiVersion_V3, //todo
+					GrpcServices: []*envoy_api_v3_core.GrpcService{{
+						TargetSpecifier: &envoy_api_v3_core.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &envoy_api_v3_core.GrpcService_EnvoyGrpc{
+								ClusterName: "sds_server",
+							},
+						},
+					}},
+				},
+			},
+		}
+	}
+
 	context := &envoy_v3_tls.DownstreamTlsContext{
 		CommonTlsContext: &envoy_v3_tls.CommonTlsContext{
 			TlsParams: &envoy_v3_tls.TlsParameters{
@@ -101,8 +123,9 @@ func DownstreamTLSContext(serverSecret *dag.Secret, tlsMinProtoVersion envoy_v3_
 				CipherSuites:              cipherSuites,
 			},
 			TlsCertificateSdsSecretConfigs: []*envoy_v3_tls.SdsSecretConfig{{
-				Name:      envoy.Secretname(serverSecret),
-				SdsConfig: ConfigSource("contour"),
+				Name: envoy.Secretname(serverSecret),
+				// SdsConfig: ConfigSource("contour"),
+				SdsConfig: configSource,
 			}},
 			AlpnProtocols: alpnProtos,
 		},

@@ -226,11 +226,15 @@ type VirtualHost struct {
 // TLS describes tls properties. The SNI names that will be matched on
 // are described in the HTTPProxy's Spec.VirtualHost.Fqdn field.
 type TLS struct {
-	// SecretName is the name of a TLS secret in the current namespace.
+	// SecretName is the name of a TLS secret.
+	// If SDS is not enabled, the secret must be in the current namespace.
+	// If SDS is enabled, the certificate will be fetched from SDS server.
 	// Either SecretName or Passthrough must be specified, but not both.
 	// If specified, the named secret must contain a matching certificate
 	// for the virtual host's FQDN.
 	SecretName string `json:"secretName,omitempty"`
+	// Whether fetch certificate from SDS server or kubernetes secret resoruce
+	EnableSDS bool `json:"enableSDS,omitempty"`
 	// MinimumProtocolVersion is the minimum TLS version this vhost should
 	// negotiate. Valid options are `1.2` (default) and `1.3`. Any other value
 	// defaults to TLS 1.2.
