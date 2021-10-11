@@ -97,22 +97,7 @@ func DownstreamTLSContext(serverSecret *dag.Secret, tlsMinProtoVersion envoy_v3_
 	if serverSecret.Object != nil {
 		configSource = ConfigSource("contour")
 	} else {
-		configSource = &envoy_api_v3_core.ConfigSource{
-			ResourceApiVersion: envoy_api_v3_core.ApiVersion_V3, //todo
-			ConfigSourceSpecifier: &envoy_api_v3_core.ConfigSource_ApiConfigSource{
-				&envoy_api_v3_core.ApiConfigSource{
-					ApiType:             envoy_api_v3_core.ApiConfigSource_GRPC,
-					TransportApiVersion: envoy_api_v3_core.ApiVersion_V3, //todo
-					GrpcServices: []*envoy_api_v3_core.GrpcService{{
-						TargetSpecifier: &envoy_api_v3_core.GrpcService_EnvoyGrpc_{
-							EnvoyGrpc: &envoy_api_v3_core.GrpcService_EnvoyGrpc{
-								ClusterName: "sds_server",
-							},
-						},
-					}},
-				},
-			},
-		}
+		configSource = ConfigSource("sds_server")
 	}
 
 	context := &envoy_v3_tls.DownstreamTlsContext{
