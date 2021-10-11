@@ -108,8 +108,7 @@ func DownstreamTLSContext(serverSecret *dag.Secret, tlsMinProtoVersion envoy_v3_
 				CipherSuites:              cipherSuites,
 			},
 			TlsCertificateSdsSecretConfigs: []*envoy_v3_tls.SdsSecretConfig{{
-				Name: envoy.Secretname(serverSecret),
-				// SdsConfig: ConfigSource("contour"),
+				Name:      envoy.Secretname(serverSecret),
 				SdsConfig: configSource,
 			}},
 			AlpnProtocols: alpnProtos,
