@@ -22,6 +22,9 @@ import (
 
 // Secretname returns the name of the SDS secret for this secret.
 func Secretname(s *dag.Secret) string {
+	if s.SdsSecretName != "" {
+		return s.SdsSecretName
+	}
 	// This isn't a crypto hash, we just want a unique name.
 	hash := sha1.Sum(s.Cert()) // nolint:gosec
 	ns := s.Namespace()

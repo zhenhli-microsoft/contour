@@ -817,8 +817,13 @@ type Secret struct {
 	SdsSecretName string
 }
 
-func (s *Secret) Name() string       { return stringOrDefault(s.Object.Name, s.SdsSecretName) }
-func (s *Secret) Namespace() string  { return s.Object.Namespace }
+func (s *Secret) Name() string { return stringOrDefault(s.SdsSecretName, s.Object.Name) }
+func (s *Secret) Namespace() string {
+	if s.Object == nil {
+		return ""
+	}
+	return s.Object.Namespace
+}
 func (s *Secret) Visit(func(Vertex)) {}
 
 // Data returns the contents of the backing secret's map.

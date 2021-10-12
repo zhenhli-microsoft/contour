@@ -208,6 +208,8 @@ func bootstrapConfig(c *envoy.BootstrapConfig) *envoy_bootstrap_v3.Bootstrap {
 			Name:                          "sds_server",
 			AltStatName:                   strings.Join([]string{c.Namespace, "sds_server", strconv.Itoa(c.GetSdsGRPCPort())}, "_"),
 			ConnectTimeout:                protobuf.Duration(5 * time.Second),
+			ClusterDiscoveryType:          ClusterDiscoveryTypeForAddress(c.GetSdsAddress(), envoy_cluster_v3.Cluster_STRICT_DNS),
+			LbPolicy:                      envoy_cluster_v3.Cluster_ROUND_ROBIN,
 			TypedExtensionProtocolOptions: http2ProtocolOptions(),
 			LoadAssignment: &envoy_endpoint_v3.ClusterLoadAssignment{
 				ClusterName: "sds_server",

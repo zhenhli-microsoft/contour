@@ -30,10 +30,17 @@ import (
 func UpstreamTLSContext(peerValidationContext *dag.PeerValidationContext, sni string, clientSecret *dag.Secret, alpnProtocols ...string) *envoy_v3_tls.UpstreamTlsContext {
 	var clientSecretConfigs []*envoy_v3_tls.SdsSecretConfig
 	if clientSecret != nil {
-		clientSecretConfigs = []*envoy_v3_tls.SdsSecretConfig{{
-			Name:      envoy.Secretname(clientSecret),
-			SdsConfig: ConfigSource("contour"),
-		}}
+		if clientSecret.Object != nil {
+			clientSecretConfigs = []*envoy_v3_tls.SdsSecretConfig{{
+				Name:      envoy.Secretname(clientSecret),
+				SdsConfig: ConfigSource("contour"),
+			}}
+		} else {
+			clientSecretConfigs = []*envoy_v3_tls.SdsSecretConfig{{
+				Name:      envoy.Secretname(clientSecret),
+				SdsConfig: ConfigSource("sds_server"),
+			}}
+		}
 	}
 
 	context := &envoy_v3_tls.UpstreamTlsContext{
@@ -101,7 +108,7 @@ func DownstreamTLSContext(serverSecret *dag.Secret, tlsMinProtoVersion envoy_v3_
 		}
 	} else {
 		sdsSecretConfig = &envoy_v3_tls.SdsSecretConfig{
-			Name:      serverSecret.SdsSecretName,
+			Name:      envoy.Secretname(serverSecret),
 			SdsConfig: ConfigSource("sds_server"),
 		}
 	}

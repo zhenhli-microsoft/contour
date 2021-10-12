@@ -43,7 +43,7 @@ func Clustername(cluster *dag.Cluster) string {
 		buf += hc.Path
 	}
 	if uv := cluster.UpstreamValidation; uv != nil {
-		buf += uv.CACertificate.Object.ObjectMeta.Name
+		buf += uv.CACertificate.Name()
 		buf += uv.SubjectName
 	}
 
