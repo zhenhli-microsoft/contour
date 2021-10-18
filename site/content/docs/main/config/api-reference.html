@@ -2859,7 +2859,7 @@ string
 <td>
 <p>SecretName is the name of a TLS secret.
 If SDS is not enabled, the secret must be in the current namespace.
-If SDS is enabled, the certificate will be fetched from SDS server.
+If SDS is enabled, the secret will be fetched from SDS server.
 Either SecretName or Passthrough must be specified, but not both.
 If specified, the named secret must contain a matching certificate
 for the virtual host&rsquo;s FQDN.</p>
@@ -2874,7 +2874,7 @@ bool
 </em>
 </td>
 <td>
-<p>Whether fetch certificate from SDS server or kubernetes secret resoruce</p>
+<p>Whether to fetch secret from SDS server or kubernetes secret resoruce</p>
 </td>
 </tr>
 <tr>
