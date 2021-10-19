@@ -17,9 +17,13 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -81,6 +85,13 @@ type serveContext struct {
 
 	// DisableLeaderElection can only be set by command line flag.
 	DisableLeaderElection bool
+
+	// LoadCertFromFile allows to fetch Contour and Envoy certificates via http connection
+	LoadCertFromFile bool
+
+	// contour certificate server http parameters
+	certAddr string
+	certPort int
 }
 
 // newServeContext returns a serveContext initialized to defaults.
@@ -104,6 +115,9 @@ func newServeContext() *serveContext {
 		httpsPort:             8443,
 		PermitInsecureGRPC:    false,
 		DisableLeaderElection: false,
+		LoadCertFromFile:      true,
+		certAddr:              "127.0.0.1",
+		certPort:              8090,
 		ServerConfig: ServerConfig{
 			xdsAddr: "127.0.0.1",
 			xdsPort: 8001,
@@ -150,6 +164,34 @@ func (ctx *serveContext) grpcOptions(log logrus.FieldLogger) []grpc.ServerOption
 	return opts
 }
 
+// contourTlsOptions returns []bytes format of certificates via HTTP connection
+// to control plane server.
+func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
+	req, err := http.NewRequest("GET", ctx.certAddr+":"+strconv.Itoa(ctx.certPort)+"/"+path, nil)
+	if err != nil {
+		log.Fatalf("Error Occured. %+v", err)
+		return nil, err
+	}
+	// use http.DefaultClient to send request
+	response, err := http.DefaultClient.Do(req)
+	if err != nil && response == nil {
+		log.Fatalf("Error sending request to API endpoint. %+v", err)
+		return nil, err //TODO
+	} else {
+		// Close the connection to reuse it
+		defer response.Body.Close()
+
+		// Let's check if the work actually is done
+		// We have seen inconsistencies even when we get 200 OK response
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			log.Fatalf("Couldn't parse response body. %+v", err)
+			return nil, err
+		}
+		return body, nil
+	}
+}
+
 // tlsconfig returns a new *tls.Config. If the context is not properly configured
 // for tls communication, tlsconfig returns nil.
 func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
@@ -161,19 +203,50 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 	// Define a closure that lazily loads certificates and key at TLS handshake
 	// to ensure that latest certificates are used in case they have been rotated.
 	loadConfig := func() (*tls.Config, error) {
-		cert, err := tls.LoadX509KeyPair(ctx.contourCert, ctx.contourKey)
-		if err != nil {
-			return nil, err
-		}
-
-		ca, err := ioutil.ReadFile(ctx.caFile)
-		if err != nil {
-			return nil, err
-		}
-
+		var cert tls.Certificate
 		certPool := x509.NewCertPool()
-		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, fmt.Errorf("unable to append certificate in %s to CA pool", ctx.caFile)
+		if ctx.LoadCertFromFile {
+			cert, err = tls.LoadX509KeyPair(ctx.contourCert, ctx.contourKey)
+			if err != nil {
+				return nil, err
+			}
+			ca, err := ioutil.ReadFile(ctx.caFile)
+			if err != nil {
+				return nil, err
+			}
+			if ok := certPool.AppendCertsFromPEM(ca); !ok {
+				return nil, fmt.Errorf("unable to append certificate in %s to CA pool", ctx.caFile)
+			}
+		} else {
+			certBytes, err := ctx.contourTlsOptions("certificate")
+			if err != nil {
+				return nil, err
+			}
+			certBlock, certBytes := pem.Decode(certBytes)
+			if certBlock == nil {
+				log.Fatalf("failed to parse PEM block containing the certificate")
+				return nil, nil
+			}
+			keyBytes, err := ctx.contourTlsOptions("certificate")
+			if err != nil {
+				return nil, err
+			}
+			keyBlock, keyBytes := pem.Decode(keyBytes)
+			if keyBlock == nil {
+				log.Fatalf("failed to parse PEM block containing the key")
+				return nil, nil
+			}
+			cert, err = tls.X509KeyPair(certBytes, keyBytes)
+			if err != nil {
+				return nil, err
+			}
+			ca, err := ctx.contourTlsOptions("ca")
+			if err != nil {
+				return nil, err
+			}
+			if ok := certPool.AppendCertsFromPEM(ca); !ok {
+				return nil, fmt.Errorf("unable to append certificate from %s to CA pool", ctx.certAddr+":"+strconv.Itoa(ctx.certPort)+"/"+"ca")
+			}
 		}
 
 		return &tls.Config{
