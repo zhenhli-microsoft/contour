@@ -90,8 +90,8 @@ type serveContext struct {
 	LoadContourCertFromSidecar bool
 
 	// contour certificate server http parameters
-	certAddr string
-	certPort int
+	certServerAddr string
+	certServerPort int
 }
 
 // newServeContext returns a serveContext initialized to defaults.
@@ -116,8 +116,8 @@ func newServeContext() *serveContext {
 		PermitInsecureGRPC:         false,
 		DisableLeaderElection:      false,
 		LoadContourCertFromSidecar: false,
-		certAddr:                   "127.0.0.1",
-		certPort:                   8090,
+		certServerAddr:             "127.0.0.1",
+		certServerPort:             8090,
 		ServerConfig: ServerConfig{
 			xdsAddr: "127.0.0.1",
 			xdsPort: 8001,
@@ -167,7 +167,7 @@ func (ctx *serveContext) grpcOptions(log logrus.FieldLogger) []grpc.ServerOption
 // contourTlsOptions returns []bytes format of certificates via HTTP connection
 // to control plane server.
 func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
-	req, err := http.NewRequest("GET", ctx.certAddr+":"+strconv.Itoa(ctx.certPort)+"/"+path, nil)
+	req, err := http.NewRequest("GET", ctx.certServerAddr+":"+strconv.Itoa(ctx.certServerPort)+"/"+path, nil)
 	if err != nil {
 		log.Fatalf("Error Occured. %+v", err)
 		return nil, err
@@ -218,7 +218,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				return nil, fmt.Errorf("unable to append certificate in %s to CA pool", ctx.caFile)
 			}
 		} else {
-			certBytes, err := ctx.contourTlsOptions("certificate")
+			certBytes, err := ctx.contourTlsOptions("cert")
 			if err != nil {
 				return nil, err
 			}
@@ -227,7 +227,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				log.Fatalf("failed to parse PEM block containing the certificate")
 				return nil, nil
 			}
-			keyBytes, err := ctx.contourTlsOptions("certificate")
+			keyBytes, err := ctx.contourTlsOptions("key")
 			if err != nil {
 				return nil, err
 			}
@@ -240,12 +240,12 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 			if err != nil {
 				return nil, err
 			}
-			ca, err := ctx.contourTlsOptions("ca")
+			ca, err := ctx.contourTlsOptions("cacert")
 			if err != nil {
 				return nil, err
 			}
 			if ok := certPool.AppendCertsFromPEM(ca); !ok {
-				return nil, fmt.Errorf("unable to append certificate from %s to CA pool", ctx.certAddr+":"+strconv.Itoa(ctx.certPort)+"/"+"ca")
+				return nil, fmt.Errorf("unable to append certificate from %s to CA pool", ctx.certServerAddr+":"+strconv.Itoa(ctx.certServerPort)+"/"+"ca")
 			}
 		}
 
