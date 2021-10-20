@@ -88,7 +88,7 @@ func bootstrap(c *envoy.BootstrapConfig) ([]bootstrapf, error) {
 				"--envoy-cafile", "--envoy-cert-file", "--envoy-key-file")
 		}
 
-		if !c.SkipFilePathCheck {
+		if !c.SkipFilePathCheck || !c.GrpcCertFromSDS {
 			// If the TLS secrets aren't set up properly,
 			// some files may not be present. In this case,
 			// envoy will reject the bootstrap configuration,
@@ -142,8 +142,13 @@ func bootstrap(c *envoy.BootstrapConfig) ([]bootstrapf, error) {
 		},
 		func(*envoy.BootstrapConfig) (string, proto.Message) {
 			b := bootstrapConfig(c)
-			b.StaticResources.Clusters[0].TransportSocket = UpstreamTLSTransportSocket(
-				upstreamSdsTLSContext(sdsTLSCertificatePath, sdsValidationContextPath))
+			if c.GrpcCertFromSDS {
+				b.StaticResources.Clusters[0].TransportSocket = UpstreamTLSTransportSocket(
+					upstreamSdsApiTlsContext(c, sdsValidationContextPath))
+			} else {
+				b.StaticResources.Clusters[0].TransportSocket = UpstreamTLSTransportSocket(
+					upstreamSdsTLSContext(sdsTLSCertificatePath, sdsValidationContextPath))
+			}
 			return c.Path, b
 		},
 	)
@@ -280,6 +285,29 @@ func upstreamSdsTLSContext(certificateSdsFile, validationSdsFile string) *envoy_
 						Path: certificateSdsFile,
 					},
 				},
+			}},
+			ValidationContextType: &envoy_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
+				ValidationContextSdsSecretConfig: &envoy_tls_v3.SdsSecretConfig{
+					Name: "contour_xds_tls_validation_context",
+					SdsConfig: &envoy_core_v3.ConfigSource{
+						ResourceApiVersion: envoy_core_v3.ApiVersion_V3,
+						ConfigSourceSpecifier: &envoy_core_v3.ConfigSource_Path{
+							Path: validationSdsFile,
+						},
+					},
+				},
+			},
+		},
+	}
+	return context
+}
+
+func upstreamSdsApiTlsContext(c *envoy.BootstrapConfig, validationSdsFile string) *envoy_tls_v3.UpstreamTlsContext {
+	context := &envoy_tls_v3.UpstreamTlsContext{
+		CommonTlsContext: &envoy_tls_v3.CommonTlsContext{
+			TlsCertificateSdsSecretConfigs: []*envoy_tls_v3.SdsSecretConfig{{
+				Name:      c.GrpcClientCert,
+				SdsConfig: ConfigSource("sds_server"),
 			}},
 			ValidationContextType: &envoy_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
 				ValidationContextSdsSecretConfig: &envoy_tls_v3.SdsSecretConfig{
