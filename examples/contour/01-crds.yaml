@@ -1867,7 +1867,7 @@ spec:
                         type: boolean
                       enableSDS:
                         description: Whether to fetch secret from SDS server or kubernetes
-                          secret resoruce
+                          secret resource
                         type: boolean
                       minimumProtocolVersion:
                         description: MinimumProtocolVersion is the minimum TLS version

@@ -233,7 +233,7 @@ type TLS struct {
 	// If specified, the named secret must contain a matching certificate
 	// for the virtual host's FQDN.
 	SecretName string `json:"secretName,omitempty"`
-	// Whether to fetch secret from SDS server or kubernetes secret resoruce
+	// Whether to fetch secret from SDS server or kubernetes secret resource
 	EnableSDS bool `json:"enableSDS,omitempty"`
 	// MinimumProtocolVersion is the minimum TLS version this vhost should
 	// negotiate. Valid options are `1.2` (default) and `1.3`. Any other value
