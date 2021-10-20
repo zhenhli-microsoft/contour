@@ -133,10 +133,13 @@ func bootstrap(c *envoy.BootstrapConfig) ([]bootstrapf, error) {
 	sdsTLSCertificatePath := path.Join(c.ResourcesDir, envoy.SDSResourcesSubdirectory, envoy.SDSTLSCertificateFile)
 	sdsValidationContextPath := path.Join(c.ResourcesDir, envoy.SDSResourcesSubdirectory, envoy.SDSValidationContextFile)
 
+	if !c.GrpcCertFromSDS {
+		steps = append(steps,
+			func(*envoy.BootstrapConfig) (string, proto.Message) {
+				return sdsTLSCertificatePath, tlsCertificateSdsSecretConfig(c)
+			})
+	}
 	steps = append(steps,
-		func(*envoy.BootstrapConfig) (string, proto.Message) {
-			return sdsTLSCertificatePath, tlsCertificateSdsSecretConfig(c)
-		},
 		func(*envoy.BootstrapConfig) (string, proto.Message) {
 			return sdsValidationContextPath, validationContextSdsSecretConfig(c)
 		},
