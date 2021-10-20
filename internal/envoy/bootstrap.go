@@ -102,6 +102,9 @@ type BootstrapConfig struct {
 	// DNSLookupFamily specifies DNS Resolution Policy to use for Envoy -> Contour cluster name lookup.
 	// Either v4, v6 or auto.
 	DNSLookupFamily string
+
+	// Whether to get Grpc client cert, key and CA bundle from SDS server
+	GrpcCertFromSDS bool
 }
 
 func (c *BootstrapConfig) GetXdsAddress() string { return stringOrDefault(c.XDSAddress, "127.0.0.1") }

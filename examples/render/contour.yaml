@@ -2991,7 +2991,7 @@ spec:
         - --contour-cafile=/certs/ca.crt
         - --contour-cert-file=/certs/tls.crt
         - --contour-key-file=/certs/tls.key
-        - --load-cert-from-file
+        - --load-contour-cert-from-sidecar
         - --config-path=/config/contour.yaml
         command: ["contour"]
         image: docker.io/projectcontour/contour:v1.18.1

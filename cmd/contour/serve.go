@@ -136,7 +136,7 @@ func registerServe(app *kingpin.Application) (*kingpin.CmdClause, *serveContext)
 	serve.Flag("contour-cafile", "CA bundle file name for serving gRPC with TLS.").Envar("CONTOUR_CAFILE").StringVar(&ctx.caFile)
 	serve.Flag("contour-cert-file", "Contour certificate file name for serving gRPC over TLS.").PlaceHolder("/path/to/file").Envar("CONTOUR_CERT_FILE").StringVar(&ctx.contourCert)
 	serve.Flag("contour-key-file", "Contour key file name for serving gRPC over TLS.").PlaceHolder("/path/to/file").Envar("CONTOUR_KEY_FILE").StringVar(&ctx.contourKey)
-	serve.Flag("load-cert-from-file", "Load Contour certificates by establishing http connection").BoolVar(&ctx.LoadCertFromFile)
+	serve.Flag("load-contour-cert-from-sidecar", "Load Contour certificates by establishing http connection").BoolVar(&ctx.LoadContourCertFromSidecar)
 	serve.Flag("insecure", "Allow serving without TLS secured gRPC.").BoolVar(&ctx.PermitInsecureGRPC)
 	serve.Flag("root-namespaces", "Restrict contour to searching these namespaces for root ingress routes.").PlaceHolder("<ns,ns>").StringVar(&ctx.rootNamespaces)
 
