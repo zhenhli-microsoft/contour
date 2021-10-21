@@ -88,7 +88,7 @@ func bootstrap(c *envoy.BootstrapConfig) ([]bootstrapf, error) {
 				"--envoy-cafile", "--envoy-cert-file", "--envoy-key-file")
 		}
 
-		if !c.SkipFilePathCheck || !c.GrpcCertFromSDS {
+		if !c.SkipFilePathCheck && !c.GrpcCertFromSDS {
 			// If the TLS secrets aren't set up properly,
 			// some files may not be present. In this case,
 			// envoy will reject the bootstrap configuration,

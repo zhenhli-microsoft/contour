@@ -167,7 +167,8 @@ func (ctx *serveContext) grpcOptions(log logrus.FieldLogger) []grpc.ServerOption
 // contourTlsOptions returns []bytes format of certificates via HTTP connection
 // to control plane server.
 func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
-	req, err := http.NewRequest("GET", ctx.certServerAddr+":"+strconv.Itoa(ctx.certServerPort)+"/"+path, nil)
+	endpoint := "http://" + ctx.certServerAddr + ":" + strconv.Itoa(ctx.certServerPort) + "/" + path
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		log.Fatalf("Error Occured. %+v", err)
 		return nil, err
@@ -187,6 +188,11 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 		if err != nil {
 			log.Fatalf("Couldn't parse response body. %+v", err)
 			return nil, err
+		}
+		if response.StatusCode != http.StatusOK {
+			error := fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, body)
+			log.Fatal(error)
+			return nil, error
 		}
 		return body, nil
 	}
@@ -222,7 +228,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 			if err != nil {
 				return nil, err
 			}
-			certBlock, certBytes := pem.Decode(certBytes)
+			certBlock, _ := pem.Decode(certBytes)
 			if certBlock == nil {
 				log.Fatalf("failed to parse PEM block containing the certificate")
 				return nil, nil
@@ -231,7 +237,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 			if err != nil {
 				return nil, err
 			}
-			keyBlock, keyBytes := pem.Decode(keyBytes)
+			keyBlock, _ := pem.Decode(keyBytes)
 			if keyBlock == nil {
 				log.Fatalf("failed to parse PEM block containing the key")
 				return nil, nil
