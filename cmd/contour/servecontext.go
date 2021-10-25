@@ -201,10 +201,10 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 			log.Infof(error)
 			return false, nil
 		}
+		return true, nil
 	}); err != nil {
 		return nil, err
 	}
-
 	return body, nil
 	}
 }
