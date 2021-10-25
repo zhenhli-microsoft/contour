@@ -35,6 +35,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 )
 
 type serveContext struct {
@@ -173,28 +175,37 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 		log.Fatalf("Error Occured. %+v", err)
 		return nil, err
 	}
-	// use http.DefaultClient to send request
-	response, err := http.DefaultClient.Do(req)
-	if err != nil && response == nil {
-		log.Fatalf("Error sending request to API endpoint. %+v", err)
-		return nil, err //TODO
-	} else {
+	// use http.DefaultClient to send request with retry mechanism
+	var response *Response
+	var body []byte
+	if err := wait.PollImmediate(200 * time.Millisecond, 2000 * time.Millisecond, func() (bool, error) {
+		response, err := http.DefaultClient.Do(req)
+		if err != nil && response == nil {
+			// if there was an error, we want to keep
+			// retrying, so just return false, not an
+			// error.
+			return false, nil
+		}
 		// Close the connection to reuse it
 		defer response.Body.Close()
 
 		// Let's check if the work actually is done
 		// We have seen inconsistencies even when we get 200 OK response
-		body, err := ioutil.ReadAll(response.Body)
+		body, err = ioutil.ReadAll(response.Body)
 		if err != nil {
-			log.Fatalf("Couldn't parse response body. %+v", err)
-			return nil, err
+			log.Infof("Couldn't parse response body. %+v", err)
+			return false, nil
 		}
 		if response.StatusCode != http.StatusOK {
 			error := fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, body)
-			log.Fatal(error)
-			return nil, error
+			log.Infof(error)
+			return false, nil
 		}
-		return body, nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return body, nil
 	}
 }
 
