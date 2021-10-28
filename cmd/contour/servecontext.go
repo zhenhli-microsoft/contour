@@ -176,15 +176,24 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 		return nil, err
 	}
 	// use http.DefaultClient to send request with retry mechanism
-	var response *Response
+	var response *http.Response
 	var body []byte
-	if err := wait.PollImmediate(200 * time.Millisecond, 2000 * time.Millisecond, func() (bool, error) {
-		response, err := http.DefaultClient.Do(req)
-		if err != nil && response == nil {
+	log.Printf("attempting to connect to certificate loader")
+	err = retry.OnError(wait.Backoff{
+		Steps:    5,
+		Duration: 1 * time.Second,
+		Factor:   1.0,
+		Jitter:   0.1,
+	}, func(err error) bool {
+		return true
+	}, func() error {
+		var err error
+		response, err = http.DefaultClient.Do(req)
+		if err != nil {
 			// if there was an error, we want to keep
 			// retrying, so just return false, not an
 			// error.
-			return false, nil
+			return err
 		}
 		// Close the connection to reuse it
 		defer response.Body.Close()
@@ -193,20 +202,20 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 		// We have seen inconsistencies even when we get 200 OK response
 		body, err = ioutil.ReadAll(response.Body)
 		if err != nil {
-			log.Infof("Couldn't parse response body. %+v", err)
-			return false, nil
+			log.Printf("Couldn't parse response body. %+v", err)
+			return err
 		}
 		if response.StatusCode != http.StatusOK {
-			error := fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, body)
-			log.Infof(error)
-			return false, nil
+			err = fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, body)
+			log.Printf("Error Occured. %+v", err)
+			return err
 		}
-		return true, nil
-	}); err != nil {
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return body, nil
-	}
 }
 
 // tlsconfig returns a new *tls.Config. If the context is not properly configured
@@ -283,9 +292,6 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 		MinVersion: tls.VersionTLS12,
 		ClientAuth: tls.RequireAndVerifyClientCert,
 		Rand:       rand.Reader,
-		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-			return loadConfig()
-		},
 	}
 }
 
