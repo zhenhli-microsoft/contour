@@ -283,8 +283,10 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 		}, nil
 	}
 
+	var config *tls.Config
+	var lerr error
 	// Attempt to load certificates and key to catch configuration errors early.
-	if _, lerr := loadConfig(); lerr != nil {
+	if config, lerr = loadConfig(); lerr != nil {
 		log.WithError(lerr).Fatal("failed to load certificate and key")
 	}
 
@@ -292,6 +294,9 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 		MinVersion: tls.VersionTLS12,
 		ClientAuth: tls.RequireAndVerifyClientCert,
 		Rand:       rand.Reader,
+		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
+			return config, nil
+		},
 	}
 }
 
