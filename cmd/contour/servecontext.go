@@ -178,6 +178,7 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 	// use http.DefaultClient to send request with retry mechanism
 	var response *http.Response
 	var body []byte
+	log.Printf("Attempting to get certificates for a new envoy client")
 	err = retry.OnError(wait.Backoff{
 		Steps:    5,
 		Duration: 1 * time.Second,
@@ -186,13 +187,11 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 	}, func(err error) bool {
 		return true
 	}, func() error {
-		log.Printf("attempting to connect to certificate loader")
+		log.Printf("Attempting to connect to certificate loader")
 		var err error
 		response, err = http.DefaultClient.Do(req)
 		if err != nil {
-			// if there was an error, we want to keep
-			// retrying, so just return false, not an
-			// error.
+			log.Fatalf("Failed to call certificate loader.")
 			return err
 		}
 		// Close the connection to reuse it
@@ -202,12 +201,12 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 		// We have seen inconsistencies even when we get 200 OK response
 		body, err = ioutil.ReadAll(response.Body)
 		if err != nil {
-			log.Printf("Couldn't parse response body. %+v", err)
+			log.Fatalf("Couldn't parse response body. %+v", err)
 			return err
 		}
 		if response.StatusCode != http.StatusOK {
 			err = fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, body)
-			log.Printf("Error Occured. %+v", err)
+			log.Fatalf("Error Occured. %+v", err)
 			return err
 		}
 		return nil
@@ -246,6 +245,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 		} else {
 			certBytes, err := ctx.contourTlsOptions("cert")
 			if err != nil {
+				log.Fatalf("Failed to get cert")
 				return nil, err
 			}
 			certBlock, _ := pem.Decode(certBytes)
@@ -255,6 +255,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 			}
 			keyBytes, err := ctx.contourTlsOptions("key")
 			if err != nil {
+				log.Fatalf("Failed to get key")
 				return nil, err
 			}
 			keyBlock, _ := pem.Decode(keyBytes)
@@ -263,13 +264,16 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				return nil, nil
 			}
 			cert, err = tls.X509KeyPair(certBytes, keyBytes)
+			log.Debug("Successfully get cert")
 			if err != nil {
 				return nil, err
 			}
 			ca, err := ctx.contourTlsOptions("cacert")
 			if err != nil {
+				log.Fatalf("Failed to get cacert")
 				return nil, err
 			}
+			log.Debug("Successfully get cacert")
 			if ok := certPool.AppendCertsFromPEM(ca); !ok {
 				return nil, fmt.Errorf("unable to append certificate from %s to CA pool", ctx.certServerAddr+":"+strconv.Itoa(ctx.certServerPort)+"/"+"ca")
 			}
@@ -283,10 +287,8 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 		}, nil
 	}
 
-	var config *tls.Config
-	var lerr error
 	// Attempt to load certificates and key to catch configuration errors early.
-	if config, lerr = loadConfig(); lerr != nil {
+	if _, lerr := loadConfig(); lerr != nil {
 		log.WithError(lerr).Fatal("failed to load certificate and key")
 	}
 
@@ -295,7 +297,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 		ClientAuth: tls.RequireAndVerifyClientCert,
 		Rand:       rand.Reader,
 		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-			return config, nil
+			return loadConfig()
 		},
 	}
 }
