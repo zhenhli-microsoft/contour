@@ -178,7 +178,6 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 	// use http.DefaultClient to send request with retry mechanism
 	var response *http.Response
 	var body []byte
-	log.Printf("attempting to connect to certificate loader")
 	err = retry.OnError(wait.Backoff{
 		Steps:    5,
 		Duration: 1 * time.Second,
@@ -187,6 +186,7 @@ func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
 	}, func(err error) bool {
 		return true
 	}, func() error {
+		log.Printf("attempting to connect to certificate loader")
 		var err error
 		response, err = http.DefaultClient.Do(req)
 		if err != nil {
