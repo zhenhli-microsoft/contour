@@ -21,12 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/projectcontour/contour/internal/contour"
 	envoy_v3 "github.com/projectcontour/contour/internal/envoy/v3"
 	xdscache_v3 "github.com/projectcontour/contour/internal/xdscache/v3"
 	"github.com/projectcontour/contour/pkg/config"
@@ -35,8 +33,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 )
 
 type serveContext struct {
@@ -92,8 +88,8 @@ type serveContext struct {
 	LoadContourCertFromSidecar bool
 
 	// contour certificate server http parameters
-	certServerAddr string
-	certServerPort int
+	CertServerAddr string
+	CertServerPort int
 }
 
 // newServeContext returns a serveContext initialized to defaults.
@@ -118,8 +114,8 @@ func newServeContext() *serveContext {
 		PermitInsecureGRPC:         false,
 		DisableLeaderElection:      false,
 		LoadContourCertFromSidecar: false,
-		certServerAddr:             "127.0.0.1",
-		certServerPort:             8090,
+		CertServerAddr:             "127.0.0.1",
+		CertServerPort:             8090,
 		ServerConfig: ServerConfig{
 			xdsAddr: "127.0.0.1",
 			xdsPort: 8001,
@@ -166,57 +162,6 @@ func (ctx *serveContext) grpcOptions(log logrus.FieldLogger) []grpc.ServerOption
 	return opts
 }
 
-// contourTlsOptions returns []bytes format of certificates via HTTP connection
-// to control plane server.
-func (ctx *serveContext) contourTlsOptions(path string) ([]byte, error) {
-	endpoint := "http://" + ctx.certServerAddr + ":" + strconv.Itoa(ctx.certServerPort) + "/" + path
-	req, err := http.NewRequest("GET", endpoint, nil)
-	if err != nil {
-		log.Fatalf("Error Occured. %+v", err)
-		return nil, err
-	}
-	// use http.DefaultClient to send request with retry mechanism
-	var response *http.Response
-	var body []byte
-	log.Printf("Attempting to get certificates for a new envoy client")
-	err = retry.OnError(wait.Backoff{
-		Steps:    5,
-		Duration: 1 * time.Second,
-		Factor:   1.0,
-		Jitter:   0.1,
-	}, func(err error) bool {
-		return true
-	}, func() error {
-		log.Printf("Attempting to connect to certificate loader")
-		var err error
-		response, err = http.DefaultClient.Do(req)
-		if err != nil {
-			log.Fatalf("Failed to call certificate loader.")
-			return err
-		}
-		// Close the connection to reuse it
-		defer response.Body.Close()
-
-		// Let's check if the work actually is done
-		// We have seen inconsistencies even when we get 200 OK response
-		body, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			log.Fatalf("Couldn't parse response body. %+v", err)
-			return err
-		}
-		if response.StatusCode != http.StatusOK {
-			err = fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, body)
-			log.Fatalf("Error Occured. %+v", err)
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
-}
-
 // tlsconfig returns a new *tls.Config. If the context is not properly configured
 // for tls communication, tlsconfig returns nil.
 func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
@@ -243,7 +188,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				return nil, fmt.Errorf("unable to append certificate in %s to CA pool", ctx.caFile)
 			}
 		} else {
-			certBytes, err := ctx.contourTlsOptions("cert")
+			certBytes, err := contour.ContourCertFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "cert")
 			if err != nil {
 				log.Fatalf("Failed to get cert")
 				return nil, err
@@ -253,7 +198,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				log.Fatalf("failed to parse PEM block containing the certificate")
 				return nil, nil
 			}
-			keyBytes, err := ctx.contourTlsOptions("key")
+			keyBytes, err := contour.ContourCertFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "key")
 			if err != nil {
 				log.Fatalf("Failed to get key")
 				return nil, err
@@ -264,18 +209,18 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				return nil, nil
 			}
 			cert, err = tls.X509KeyPair(certBytes, keyBytes)
-			log.Debug("Successfully get cert")
 			if err != nil {
 				return nil, err
 			}
-			ca, err := ctx.contourTlsOptions("cacert")
+			log.Debug("Successfully get cert and key")
+			ca, err := contour.ContourCertFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "cacert")
 			if err != nil {
 				log.Fatalf("Failed to get cacert")
 				return nil, err
 			}
 			log.Debug("Successfully get cacert")
 			if ok := certPool.AppendCertsFromPEM(ca); !ok {
-				return nil, fmt.Errorf("unable to append certificate from %s to CA pool", ctx.certServerAddr+":"+strconv.Itoa(ctx.certServerPort)+"/"+"ca")
+				return nil, fmt.Errorf("failed to append CA certs")
 			}
 		}
 
@@ -306,6 +251,13 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 
 // verifyTLSFlags indicates if the TLS flags are set up correctly.
 func (ctx *serveContext) verifyTLSFlags() error {
+	if ctx.LoadContourCertFromSidecar {
+		if ctx.caFile != "" || ctx.contourCert != "" || ctx.contourKey != "" {
+			return errors.New("no TLS parameters should be supplied when load cert from sidecar")
+		}
+
+		return nil
+	}
 	if ctx.caFile == "" && ctx.contourCert == "" && ctx.contourKey == "" {
 		return errors.New("no TLS parameters and --insecure not supplied. You must supply one or the other")
 	}

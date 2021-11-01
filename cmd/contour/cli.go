@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"io/ioutil"
 	"os"
 
@@ -26,6 +27,8 @@ import (
 	envoy_service_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/service/listener/v3"
 	envoy_service_route_v3 "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
 	"github.com/golang/protobuf/proto"
+	"github.com/projectcontour/contour/internal/contour"
+	"github.com/prometheus/common/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -33,16 +36,20 @@ import (
 
 // Client holds the details for the cli client to connect to.
 type Client struct {
-	ContourAddr string
-	CAFile      string
-	ClientCert  string
-	ClientKey   string
+	ContourAddr                string
+	CAFile                     string
+	ClientCert                 string
+	ClientKey                  string
+	LoadContourCertFromSidecar bool
+	CertServerAddr             string
+	CertServerPort             int
 }
 
 func (c *Client) dial() *grpc.ClientConn {
 	var options []grpc.DialOption
 
 	// Check the TLS setup
+	certPool := x509.NewCertPool()
 	switch {
 	case c.CAFile != "" || c.ClientCert != "" || c.ClientKey != "":
 		// If one of the three TLS commands is not empty, they all must be not empty
@@ -53,7 +60,6 @@ func (c *Client) dial() *grpc.ClientConn {
 		certificate, err := tls.LoadX509KeyPair(c.ClientCert, c.ClientKey)
 		kingpin.FatalIfError(err, "failed to load certificates from disk")
 		// Create a certificate pool from the certificate authority
-		certPool := x509.NewCertPool()
 		ca, err := ioutil.ReadFile(c.CAFile)
 		kingpin.FatalIfError(err, "failed to read CA cert")
 
@@ -70,6 +76,51 @@ func (c *Client) dial() *grpc.ClientConn {
 			// the serving cert used by contour serve.
 			ServerName:   "contour",
 			Certificates: []tls.Certificate{certificate},
+			RootCAs:      certPool,
+			MinVersion:   tls.VersionTLS12,
+		})
+		options = append(options, grpc.WithTransportCredentials(creds))
+	case c.LoadContourCertFromSidecar:
+		certBytes, err := contour.ContourCertFromCertServer(c.CertServerAddr, c.CertServerPort, "cert")
+		if err != nil {
+			log.Error(err)
+			kingpin.Fatalf("Failed to get client cert.")
+		}
+		certBlock, _ := pem.Decode(certBytes)
+		if certBlock == nil {
+			kingpin.Fatalf("failed to parse PEM block containing the certificate")
+		}
+		keyBytes, err := contour.ContourCertFromCertServer(c.CertServerAddr, c.CertServerPort, "key")
+		if err != nil {
+			log.Error(err)
+			kingpin.Fatalf("Failed to get client key")
+		}
+		keyBlock, _ := pem.Decode(keyBytes)
+		if keyBlock == nil {
+			kingpin.Fatalf("failed to parse PEM block containing the key")
+		}
+		cert, err := tls.X509KeyPair(certBytes, keyBytes)
+		if err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
+		log.Debug("Successfully get client cert and key")
+		ca, err := contour.ContourCertFromCertServer(c.CertServerAddr, c.CertServerPort, "cacert")
+		if err != nil {
+			log.Error(err)
+			kingpin.Fatalf("Failed to get cacert")
+		}
+		log.Debug("Successfully get cacert")
+		if ok := certPool.AppendCertsFromPEM(ca); !ok {
+			kingpin.Fatalf("failed to append CA certs")
+		}
+		creds := credentials.NewTLS(&tls.Config{
+			// TODO(youngnick): Does this need to be defaulted with a cli flag to
+			// override?
+			// The ServerName here needs to be one of the SANs available in
+			// the serving cert used by contour serve.
+			ServerName:   "contour",
+			Certificates: []tls.Certificate{cert},
 			RootCAs:      certPool,
 			MinVersion:   tls.VersionTLS12,
 		})
