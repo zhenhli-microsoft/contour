@@ -80,27 +80,29 @@ func bootstrap(c *envoy.BootstrapConfig) ([]bootstrapf, error) {
 		return steps, nil
 	}
 
-	for _, f := range []string{c.GrpcClientCert, c.GrpcClientKey, c.GrpcCABundle} {
-		// If any of of the TLS options is not empty, they all must be not empty.
-		if f == "" {
-			return nil, fmt.Errorf(
-				"you must supply all TLS parameters - %q, %q, %q, or none of them",
-				"--envoy-cafile", "--envoy-cert-file", "--envoy-key-file")
-		}
-
-		if !c.SkipFilePathCheck && !c.GrpcCertFromSDS {
-			// If the TLS secrets aren't set up properly,
-			// some files may not be present. In this case,
-			// envoy will reject the bootstrap configuration,
-			// but there is no way to detect and fix that. If
-			// we check and fail here, that is visible in the
-			// Pod lifecycle and therefore fixable.
-			fi, err := os.Stat(f)
-			if err != nil {
-				return nil, err
+	if !c.GrpcCertFromSDS {
+		for _, f := range []string{c.GrpcClientCert, c.GrpcClientKey, c.GrpcCABundle} {
+			// If any of of the TLS options is not empty, they all must be not empty.
+			if f == "" {
+				return nil, fmt.Errorf(
+					"you must supply all TLS parameters - %q, %q, %q, or none of them",
+					"--envoy-cafile", "--envoy-cert-file", "--envoy-key-file")
 			}
-			if fi.Size() == 0 {
-				return nil, fmt.Errorf("%q is empty", f)
+
+			if !c.SkipFilePathCheck {
+				// If the TLS secrets aren't set up properly,
+				// some files may not be present. In this case,
+				// envoy will reject the bootstrap configuration,
+				// but there is no way to detect and fix that. If
+				// we check and fail here, that is visible in the
+				// Pod lifecycle and therefore fixable.
+				fi, err := os.Stat(f)
+				if err != nil {
+					return nil, err
+				}
+				if fi.Size() == 0 {
+					return nil, fmt.Errorf("%q is empty", f)
+				}
 			}
 		}
 	}
