@@ -84,8 +84,8 @@ type serveContext struct {
 	// DisableLeaderElection can only be set by command line flag.
 	DisableLeaderElection bool
 
-	// LoadContourCertFromSidecar allows to fetch Contour and Envoy certificates via http connection
-	LoadContourCertFromSidecar bool
+	// LoadContourCertFromCertServer allows to fetch Contour and Envoy certificates via http connection
+	LoadContourCertFromCertServer bool
 
 	// contour certificate server http parameters
 	CertServerAddr string
@@ -96,26 +96,26 @@ type serveContext struct {
 func newServeContext() *serveContext {
 	// Set defaults for parameters which are then overridden via flags, ENV, or ConfigFile
 	return &serveContext{
-		Config:                     config.Defaults(),
-		statsAddr:                  "0.0.0.0",
-		statsPort:                  8002,
-		debugAddr:                  "127.0.0.1",
-		debugPort:                  6060,
-		healthAddr:                 "0.0.0.0",
-		healthPort:                 8000,
-		metricsAddr:                "0.0.0.0",
-		metricsPort:                8000,
-		httpAccessLog:              xdscache_v3.DEFAULT_HTTP_ACCESS_LOG,
-		httpsAccessLog:             xdscache_v3.DEFAULT_HTTPS_ACCESS_LOG,
-		httpAddr:                   "0.0.0.0",
-		httpsAddr:                  "0.0.0.0",
-		httpPort:                   8080,
-		httpsPort:                  8443,
-		PermitInsecureGRPC:         false,
-		DisableLeaderElection:      false,
-		LoadContourCertFromSidecar: false,
-		CertServerAddr:             "127.0.0.1",
-		CertServerPort:             8090,
+		Config:                        config.Defaults(),
+		statsAddr:                     "0.0.0.0",
+		statsPort:                     8002,
+		debugAddr:                     "127.0.0.1",
+		debugPort:                     6060,
+		healthAddr:                    "0.0.0.0",
+		healthPort:                    8000,
+		metricsAddr:                   "0.0.0.0",
+		metricsPort:                   8000,
+		httpAccessLog:                 xdscache_v3.DEFAULT_HTTP_ACCESS_LOG,
+		httpsAccessLog:                xdscache_v3.DEFAULT_HTTPS_ACCESS_LOG,
+		httpAddr:                      "0.0.0.0",
+		httpsAddr:                     "0.0.0.0",
+		httpPort:                      8080,
+		httpsPort:                     8443,
+		PermitInsecureGRPC:            false,
+		DisableLeaderElection:         false,
+		LoadContourCertFromCertServer: false,
+		CertServerAddr:                "127.0.0.1",
+		CertServerPort:                8090,
 		ServerConfig: ServerConfig{
 			xdsAddr: "127.0.0.1",
 			xdsPort: 8001,
@@ -175,7 +175,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 	loadConfig := func() (*tls.Config, error) {
 		var cert tls.Certificate
 		certPool := x509.NewCertPool()
-		if !ctx.LoadContourCertFromSidecar {
+		if !ctx.LoadContourCertFromCertServer {
 			cert, err = tls.LoadX509KeyPair(ctx.contourCert, ctx.contourKey)
 			if err != nil {
 				return nil, err
@@ -251,7 +251,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 
 // verifyTLSFlags indicates if the TLS flags are set up correctly.
 func (ctx *serveContext) verifyTLSFlags() error {
-	if ctx.LoadContourCertFromSidecar {
+	if ctx.LoadContourCertFromCertServer {
 		if ctx.caFile != "" || ctx.contourCert != "" || ctx.contourKey != "" {
 			return errors.New("no TLS parameters should be supplied when load cert from sidecar")
 		}

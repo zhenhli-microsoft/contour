@@ -36,13 +36,13 @@ import (
 
 // Client holds the details for the cli client to connect to.
 type Client struct {
-	ContourAddr                string
-	CAFile                     string
-	ClientCert                 string
-	ClientKey                  string
-	LoadContourCertFromSidecar bool
-	CertServerAddr             string
-	CertServerPort             int
+	ContourAddr                   string
+	CAFile                        string
+	ClientCert                    string
+	ClientKey                     string
+	LoadContourCertFromCertServer bool
+	CertServerAddr                string
+	CertServerPort                int
 }
 
 func (c *Client) dial() *grpc.ClientConn {
@@ -80,7 +80,7 @@ func (c *Client) dial() *grpc.ClientConn {
 			MinVersion:   tls.VersionTLS12,
 		})
 		options = append(options, grpc.WithTransportCredentials(creds))
-	case c.LoadContourCertFromSidecar:
+	case c.LoadContourCertFromCertServer:
 		certBytes, err := contour.ContourCertFromCertServer(c.CertServerAddr, c.CertServerPort, "cert")
 		if err != nil {
 			log.Error(err)

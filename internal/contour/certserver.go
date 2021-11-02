@@ -24,7 +24,7 @@ func ContourCertFromCertServer(certServerAddr string, certServerPort int, path s
 	// use http.DefaultClient to send request with retry mechanism
 	var response *http.Response
 	var body []byte
-	log.Printf("Attempting to get certificates for a new envoy client")
+	log.Printf("Attempting to get certificates from certificate loader")
 	err = retry.OnError(wait.Backoff{
 		Steps:    5,
 		Duration: 1 * time.Second,
@@ -33,7 +33,7 @@ func ContourCertFromCertServer(certServerAddr string, certServerPort int, path s
 	}, func(err error) bool {
 		return true
 	}, func() error {
-		log.Printf("Attempting to connect to certificate loader")
+		log.Printf("Attempting to call certificate loader")
 		var err error
 		response, err = http.DefaultClient.Do(req)
 		if err != nil {
