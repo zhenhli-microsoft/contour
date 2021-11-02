@@ -35,5 +35,5 @@ RUN make build \
 # Ensure we produced a static binary.
 RUN ldd contour | grep 'not a dynamic executable'
 
-FROM scratch AS final
+FROM  cblmariner.azurecr.io/base/core:1.0.20210127@sha256:08958790938a919e2a8fd1e4dfc3baf13f3b468d66b7fe3ec4b62686312aee6a AS final
 COPY --from=build /contour/contour /bin/contour
