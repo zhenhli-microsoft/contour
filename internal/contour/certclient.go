@@ -3,18 +3,18 @@ package contour
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
 
 // ContourCertFromCertServer returns []bytes format of certificates via HTTP connection
 // to control plane server.
-func ContourCertFromCertServer(certServerAddr string, certServerPort int, path string) ([]byte, error) {
+func ContourCertFromCertServer(certServerAddr string, certServerPort int, path string, log logrus.FieldLogger) ([]byte, error) {
 	endpoint := "http://" + certServerAddr + ":" + strconv.Itoa(certServerPort) + "/" + path
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
