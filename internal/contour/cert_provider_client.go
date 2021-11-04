@@ -1,20 +1,25 @@
 package contour
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
 
-// ContourCertFromCertServer returns []bytes format of certificates via HTTP connection
+type PemData struct {
+	Pem string `json:"pem"`
+}
+
+// GetPemDataFromCertServer returns []bytes format of certificates via HTTP connection
 // to control plane server.
-func ContourCertFromCertServer(certServerAddr string, certServerPort int, path string, log logrus.FieldLogger) ([]byte, error) {
+func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path string) ([]byte, error) {
 	endpoint := "http://" + certServerAddr + ":" + strconv.Itoa(certServerPort) + "/" + path
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -23,7 +28,7 @@ func ContourCertFromCertServer(certServerAddr string, certServerPort int, path s
 	}
 	// use http.DefaultClient to send request with retry mechanism
 	var response *http.Response
-	var body []byte
+	var pem PemData
 	log.Printf("Attempting to get certificates from certificate loader")
 	err = retry.OnError(wait.Backoff{
 		Steps:    5,
@@ -42,23 +47,31 @@ func ContourCertFromCertServer(certServerAddr string, certServerPort int, path s
 		}
 		// Close the connection to reuse it
 		defer response.Body.Close()
-
-		// Let's check if the work actually is done
-		// We have seen inconsistencies even when we get 200 OK response
-		body, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			log.Fatalf("Couldn't parse response body. %+v", err)
+		if response.StatusCode != http.StatusOK {
+			var body []byte
+			body, err = ioutil.ReadAll(response.Body)
+			bodyString := string(body)
+			if err != nil {
+				bodyString = fmt.Sprintf("error reading response body: %+v", err)
+			}
+			err = fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, bodyString)
+			log.Fatalf("Error Occured. %+v", err)
 			return err
 		}
-		if response.StatusCode != http.StatusOK {
-			err = fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, body)
-			log.Fatalf("Error Occured. %+v", err)
+		err = json.NewDecoder(response.Body).Decode(&pem)
+		if err != nil {
+			log.Fatalf("Couldn't parse response body to json: %+v", err)
 			return err
 		}
 		return nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
-	return body, nil
+
+	if err != nil {
+		return nil, err
+	}
+	return []byte(pem.Pem), nil
 }

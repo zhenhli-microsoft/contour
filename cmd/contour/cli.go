@@ -81,7 +81,7 @@ func (c *Client) dial() *grpc.ClientConn {
 		})
 		options = append(options, grpc.WithTransportCredentials(creds))
 	case c.LoadContourCertFromCertServer:
-		certBytes, err := contour.ContourCertFromCertServer(c.CertServerAddr, c.CertServerPort, "cert")
+		certBytes, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cert")
 		if err != nil {
 			log.Error(err)
 			kingpin.Fatalf("Failed to get client cert.")
@@ -90,7 +90,7 @@ func (c *Client) dial() *grpc.ClientConn {
 		if certBlock == nil {
 			kingpin.Fatalf("failed to parse PEM block containing the certificate")
 		}
-		keyBytes, err := contour.ContourCertFromCertServer(c.CertServerAddr, c.CertServerPort, "key")
+		keyBytes, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "key")
 		if err != nil {
 			log.Error(err)
 			kingpin.Fatalf("Failed to get client key")
@@ -105,7 +105,7 @@ func (c *Client) dial() *grpc.ClientConn {
 			os.Exit(1)
 		}
 		log.Debug("Successfully get client cert and key")
-		ca, err := contour.ContourCertFromCertServer(c.CertServerAddr, c.CertServerPort, "cacert")
+		ca, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cacert")
 		if err != nil {
 			log.Error(err)
 			kingpin.Fatalf("Failed to get cacert")

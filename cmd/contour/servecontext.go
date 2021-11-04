@@ -188,7 +188,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				return nil, fmt.Errorf("unable to append certificate in %s to CA pool", ctx.caFile)
 			}
 		} else {
-			certBytes, err := contour.ContourCertFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "cert", log)
+			certBytes, err := contour.GetPemDataFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "cert")
 			if err != nil {
 				log.Fatalf("Failed to get cert")
 				return nil, err
@@ -198,7 +198,7 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				log.Fatalf("failed to parse PEM block containing the certificate")
 				return nil, nil
 			}
-			keyBytes, err := contour.ContourCertFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "key", log)
+			keyBytes, err := contour.GetPemDataFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "key")
 			if err != nil {
 				log.Fatalf("Failed to get key")
 				return nil, err
@@ -213,12 +213,12 @@ func (ctx *serveContext) tlsconfig(log logrus.FieldLogger) *tls.Config {
 				return nil, err
 			}
 			log.Debug("Successfully get cert and key")
-			ca, err := contour.ContourCertFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "cacert", log)
+			ca, err := contour.GetPemDataFromCertServer(ctx.CertServerAddr, ctx.CertServerPort, "cacert")
 			if err != nil {
 				log.Fatalf("Failed to get cacert")
 				return nil, err
 			}
-			log.Debug("Successfully get cacert")
+			fmt.Printf("Successfully get cacert")
 			if ok := certPool.AppendCertsFromPEM(ca); !ok {
 				return nil, fmt.Errorf("failed to append CA certs")
 			}
