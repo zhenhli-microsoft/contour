@@ -834,11 +834,17 @@ func (s *ServiceCluster) Rebalance() {
 // Secret represents a K8s Secret for TLS usage as a DAG Vertex. A Secret is
 // a leaf in the DAG.
 type Secret struct {
-	Object *v1.Secret
+	Object        *v1.Secret
+	SdsSecretName string
 }
 
-func (s *Secret) Name() string       { return s.Object.Name }
-func (s *Secret) Namespace() string  { return s.Object.Namespace }
+func (s *Secret) Name() string { return stringOrDefault(s.SdsSecretName, s.Object.Name) }
+func (s *Secret) Namespace() string {
+	if s.Object == nil {
+		return ""
+	}
+	return s.Object.Namespace
+}
 func (s *Secret) Visit(func(Vertex)) {}
 
 // Data returns the contents of the backing secret's map.

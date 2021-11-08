@@ -62,6 +62,18 @@ type BootstrapConfig struct {
 	// Defaults to "v3"
 	XDSResourceVersion config.ResourceVersion
 
+	// SDSAddress is the TCP address of the gRPC SDS server.
+	// Defaults to "" which means SDS is disabled.
+	SDSAddress string
+
+	// SDSGRPCPort is the management server port that provides the v3 gRPC API.
+	// Defaults to 8234.
+	SDSGRPCPort int
+
+	// SDSResourceVersion defines the SDS Server Version to use.
+	// Defaults to "v3"
+	SDSResourceVersion config.ResourceVersion
+
 	// Namespace is the namespace where Contour is running
 	Namespace string
 
@@ -90,6 +102,9 @@ type BootstrapConfig struct {
 	// DNSLookupFamily specifies DNS Resolution Policy to use for Envoy -> Contour cluster name lookup.
 	// Either v4, v6 or auto.
 	DNSLookupFamily string
+
+	// Whether to get Grpc client cert, key and CA bundle from SDS server
+	GrpcCertFromSDS bool
 }
 
 // GetXdsAddress returns the address configured or defaults to "127.0.0.1"
@@ -108,6 +123,9 @@ func (c *BootstrapConfig) GetAdminPort() int { return intOrDefault(c.AdminPort, 
 func (c *BootstrapConfig) GetAdminAccessLogPath() string {
 	return stringOrDefault(c.AdminAccessLogPath, "/dev/null")
 }
+
+func (c *BootstrapConfig) GetSdsAddress() string { return stringOrDefault(c.SDSAddress, "") }
+func (c *BootstrapConfig) GetSdsGRPCPort() int   { return intOrDefault(c.SDSGRPCPort, 8234) }
 
 // GetDNSLookupFamily returns the configured dns lookup family or defaults to "auto"
 func (c *BootstrapConfig) GetDNSLookupFamily() string {

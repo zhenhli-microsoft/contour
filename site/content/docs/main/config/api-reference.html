@@ -3046,10 +3046,24 @@ string
 </em>
 </td>
 <td>
-<p>SecretName is the name of a TLS secret in the current namespace.
+<p>SecretName is the name of a TLS secret.
+If SDS is not enabled, the secret must be in the current namespace.
+If SDS is enabled, the secret will be fetched from SDS server.
 Either SecretName or Passthrough must be specified, but not both.
 If specified, the named secret must contain a matching certificate
 for the virtual host&rsquo;s FQDN.</p>
+</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>enableSDS</code>
+<br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Whether to fetch secret from SDS server or kubernetes secret resource</p>
 </td>
 </tr>
 <tr>

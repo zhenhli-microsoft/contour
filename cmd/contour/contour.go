@@ -48,6 +48,9 @@ func main() {
 	cli.Flag("cafile", "CA bundle file for connecting to a TLS-secured Contour.").Envar("CLI_CAFILE").StringVar(&client.CAFile)
 	cli.Flag("cert-file", "Client certificate file for connecting to a TLS-secured Contour.").Envar("CLI_CERT_FILE").StringVar(&client.ClientCert)
 	cli.Flag("key-file", "Client key file for connecting to a TLS-secured Contour.").Envar("CLI_KEY_FILE").StringVar(&client.ClientKey)
+	cli.Flag("load-contour-cert-from-cert-server", "Load Contour certificates from another server").BoolVar(&client.LoadContourCertFromCertServer)
+	cli.Flag("cert-server-address", "Address of the certificate server.").StringVar(&client.CertServerAddr)
+	cli.Flag("cert-server-port", "Port of the certificate server.").IntVar(&client.CertServerPort)
 
 	var resources []string
 	cds := cli.Command("cds", "Watch services.")

@@ -4074,6 +4074,10 @@ spec:
                           should allow a default certificate to be applied which handles
                           all requests which don't match the SNI defined in this vhost.
                         type: boolean
+                      enableSDS:
+                        description: Whether to fetch secret from SDS server or kubernetes
+                          secret resource
+                        type: boolean
                       minimumProtocolVersion:
                         description: MinimumProtocolVersion is the minimum TLS version
                           this vhost should negotiate. Valid options are `1.2` (default)
@@ -4086,11 +4090,12 @@ spec:
                           not both.
                         type: boolean
                       secretName:
-                        description: SecretName is the name of a TLS secret in the
-                          current namespace. Either SecretName or Passthrough must
-                          be specified, but not both. If specified, the named secret
-                          must contain a matching certificate for the virtual host's
-                          FQDN.
+                        description: SecretName is the name of a TLS secret. If SDS
+                          is not enabled, the secret must be in the current namespace.
+                          If SDS is enabled, the secret will be fetched from SDS server.
+                          Either SecretName or Passthrough must be specified, but
+                          not both. If specified, the named secret must contain a
+                          matching certificate for the virtual host's FQDN.
                         type: string
                     type: object
                 required:

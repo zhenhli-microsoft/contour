@@ -134,6 +134,18 @@ type TLS struct {
 
 	// Allow serving the xDS gRPC API without TLS.
 	Insecure bool `json:"insecure"`
+
+	// Load contour certificate from certificate server.
+	// +optional
+	LoadContourCertFromCertServer bool `json:"loadContourCertFromCertServer,omitempty"`
+
+	// Address of the certificate server.
+	// +optional
+	CertServerAddr string `json:"certServerAddr,omitempty"`
+
+	// Port of the certificate server.
+	// +optional
+	CertServerPort int `json:"certServerPort,omitempty"`
 }
 
 // IngressConfig defines ingress specific config items.

@@ -93,6 +93,9 @@ func visitSecrets(root dag.Vertex) map[string]*envoy_tls_v3.Secret {
 }
 
 func (v *secretVisitor) addSecret(s *dag.Secret) {
+	if s.Object == nil {
+		return
+	}
 	name := envoy.Secretname(s)
 	if _, ok := v.secrets[name]; !ok {
 		envoySecret := envoy_v3.Secret(s)

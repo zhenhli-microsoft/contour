@@ -17,12 +17,14 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
 	"time"
 
+	"github.com/projectcontour/contour/internal/contour"
 	"github.com/projectcontour/contour/internal/k8s"
 	"k8s.io/utils/pointer"
 
@@ -87,6 +89,13 @@ type serveContext struct {
 
 	// DisableLeaderElection can only be set by command line flag.
 	DisableLeaderElection bool
+
+	// LoadContourCertFromCertServer allows to fetch Contour and Envoy certificates via http connection
+	LoadContourCertFromCertServer bool
+
+	// contour certificate server http parameters
+	CertServerAddr string
+	CertServerPort int
 }
 
 type ServerConfig struct {
@@ -100,23 +109,26 @@ type ServerConfig struct {
 func newServeContext() *serveContext {
 	// Set defaults for parameters which are then overridden via flags, ENV, or ConfigFile
 	return &serveContext{
-		Config:                config.Defaults(),
-		statsAddr:             "0.0.0.0",
-		statsPort:             8002,
-		debugAddr:             "127.0.0.1",
-		debugPort:             6060,
-		healthAddr:            "0.0.0.0",
-		healthPort:            8000,
-		metricsAddr:           "0.0.0.0",
-		metricsPort:           8000,
-		httpAccessLog:         xdscache_v3.DEFAULT_HTTP_ACCESS_LOG,
-		httpsAccessLog:        xdscache_v3.DEFAULT_HTTPS_ACCESS_LOG,
-		httpAddr:              "0.0.0.0",
-		httpsAddr:             "0.0.0.0",
-		httpPort:              8080,
-		httpsPort:             8443,
-		PermitInsecureGRPC:    false,
-		DisableLeaderElection: false,
+		Config:                        config.Defaults(),
+		statsAddr:                     "0.0.0.0",
+		statsPort:                     8002,
+		debugAddr:                     "127.0.0.1",
+		debugPort:                     6060,
+		healthAddr:                    "0.0.0.0",
+		healthPort:                    8000,
+		metricsAddr:                   "0.0.0.0",
+		metricsPort:                   8000,
+		httpAccessLog:                 xdscache_v3.DEFAULT_HTTP_ACCESS_LOG,
+		httpsAccessLog:                xdscache_v3.DEFAULT_HTTPS_ACCESS_LOG,
+		httpAddr:                      "0.0.0.0",
+		httpsAddr:                     "0.0.0.0",
+		httpPort:                      8080,
+		httpsPort:                     8443,
+		PermitInsecureGRPC:            false,
+		DisableLeaderElection:         false,
+		LoadContourCertFromCertServer: false,
+		CertServerAddr:                "127.0.0.1",
+		CertServerPort:                8090,
 		ServerConfig: ServerConfig{
 			xdsAddr:     "127.0.0.1",
 			xdsPort:     8001,
@@ -173,19 +185,56 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 		if contourXDSTLS == nil {
 			return nil, nil
 		}
-		cert, err := tls.LoadX509KeyPair(contourXDSTLS.CertFile, contourXDSTLS.KeyFile)
-		if err != nil {
-			return nil, err
-		}
-
-		ca, err := ioutil.ReadFile(contourXDSTLS.CAFile)
-		if err != nil {
-			return nil, err
-		}
-
+		var cert tls.Certificate
 		certPool := x509.NewCertPool()
-		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, fmt.Errorf("unable to append certificate in %s to CA pool", contourXDSTLS.CAFile)
+		if !contourXDSTLS.LoadContourCertFromCertServer {
+			cert, err = tls.LoadX509KeyPair(contourXDSTLS.CertFile, contourXDSTLS.KeyFile)
+			if err != nil {
+				return nil, err
+			}
+
+			ca, err := ioutil.ReadFile(contourXDSTLS.CAFile)
+			if err != nil {
+				return nil, err
+			}
+			if ok := certPool.AppendCertsFromPEM(ca); !ok {
+				return nil, fmt.Errorf("unable to append certificate in %s to CA pool", contourXDSTLS.CAFile)
+			}
+		} else {
+			certBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cert")
+			if err != nil {
+				log.Fatalf("Failed to get cert")
+				return nil, err
+			}
+			certBlock, _ := pem.Decode(certBytes)
+			if certBlock == nil {
+				log.Fatalf("failed to parse PEM block containing the certificate")
+				return nil, nil
+			}
+			keyBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "key")
+			if err != nil {
+				log.Fatalf("Failed to get key")
+				return nil, err
+			}
+			keyBlock, _ := pem.Decode(keyBytes)
+			if keyBlock == nil {
+				log.Fatalf("failed to parse PEM block containing the key")
+				return nil, nil
+			}
+			cert, err = tls.X509KeyPair(certBytes, keyBytes)
+			if err != nil {
+				return nil, err
+			}
+			log.Debug("Successfully get cert and key")
+			ca, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cacert")
+			if err != nil {
+				log.Fatalf("Failed to get cacert")
+				return nil, err
+			}
+			fmt.Printf("Successfully get cacert")
+			if ok := certPool.AppendCertsFromPEM(ca); !ok {
+				return nil, fmt.Errorf("failed to append CA certs")
+			}
 		}
 
 		return &tls.Config{
@@ -196,8 +245,10 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 		}, nil
 	}
 
+	var config *tls.Config
+	var lerr error
 	// Attempt to load certificates and key to catch configuration errors early.
-	if _, lerr := loadConfig(); lerr != nil {
+	if config, lerr = loadConfig(); lerr != nil {
 		log.WithError(lerr).Fatal("failed to load certificate and key")
 	}
 
@@ -206,13 +257,21 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 		ClientAuth: tls.RequireAndVerifyClientCert,
 		Rand:       rand.Reader,
 		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-			return loadConfig()
+			return config, nil
 		},
 	}
 }
 
 // verifyTLSFlags indicates if the TLS flags are set up correctly.
 func verifyTLSFlags(contourXDSTLS *contour_api_v1alpha1.TLS) error {
+	if contourXDSTLS.LoadContourCertFromCertServer {
+		if contourXDSTLS.CAFile != "" || contourXDSTLS.CertFile != "" || contourXDSTLS.KeyFile != "" {
+			return errors.New("no TLS parameters should be supplied when load cert from sidecar")
+		}
+
+		return nil
+	}
+
 	if contourXDSTLS.CAFile == "" && contourXDSTLS.CertFile == "" && contourXDSTLS.KeyFile == "" {
 		return errors.New("no TLS parameters and --insecure not supplied. You must supply one or the other")
 	}
@@ -479,10 +538,13 @@ func (ctx *serveContext) convertToContourConfigurationSpec() contour_api_v1alpha
 		Address: ctx.xdsAddr,
 		Port:    ctx.xdsPort,
 		TLS: &contour_api_v1alpha1.TLS{
-			CAFile:   ctx.caFile,
-			CertFile: ctx.contourCert,
-			KeyFile:  ctx.contourKey,
-			Insecure: ctx.PermitInsecureGRPC,
+			CAFile:                        ctx.caFile,
+			CertFile:                      ctx.contourCert,
+			KeyFile:                       ctx.contourKey,
+			Insecure:                      ctx.PermitInsecureGRPC,
+			LoadContourCertFromCertServer: ctx.LoadContourCertFromCertServer,
+			CertServerAddr:                ctx.CertServerAddr,
+			CertServerPort:                ctx.CertServerPort,
 		},
 	}
 
