@@ -226,6 +226,26 @@ func ConfigSource(cluster string) *envoy_core_v3.ConfigSource {
 	}
 }
 
+// ConfigSource returns a *envoy_core_v3.ConfigSource for cluster.
+func ConfigSourceWithDelta(cluster string) *envoy_core_v3.ConfigSource {
+	return &envoy_core_v3.ConfigSource{
+		ResourceApiVersion: envoy_core_v3.ApiVersion_V3,
+		ConfigSourceSpecifier: &envoy_core_v3.ConfigSource_ApiConfigSource{
+			ApiConfigSource: &envoy_core_v3.ApiConfigSource{
+				ApiType:             envoy_core_v3.ApiConfigSource_DELTA_GRPC,
+				TransportApiVersion: envoy_core_v3.ApiVersion_V3,
+				GrpcServices: []*envoy_core_v3.GrpcService{{
+					TargetSpecifier: &envoy_core_v3.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &envoy_core_v3.GrpcService_EnvoyGrpc{
+							ClusterName: cluster,
+						},
+					},
+				}},
+			},
+		},
+	}
+}
+
 // ClusterDiscoveryType returns the type of a ClusterDiscovery as a Cluster_type.
 func ClusterDiscoveryType(t envoy_cluster_v3.Cluster_DiscoveryType) *envoy_cluster_v3.Cluster_Type {
 	return &envoy_cluster_v3.Cluster_Type{Type: t}

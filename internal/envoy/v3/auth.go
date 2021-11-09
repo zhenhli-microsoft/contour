@@ -109,7 +109,7 @@ func DownstreamTLSContext(serverSecret *dag.Secret, tlsMinProtoVersion envoy_v3_
 	} else {
 		sdsSecretConfig = &envoy_v3_tls.SdsSecretConfig{
 			Name:      envoy.Secretname(serverSecret),
-			SdsConfig: ConfigSource("sds_server"),
+			SdsConfig: ConfigSourceWithDelta("sds_server"),
 		}
 	}
 
