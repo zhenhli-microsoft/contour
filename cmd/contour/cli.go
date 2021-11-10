@@ -51,35 +51,6 @@ func (c *Client) dial() *grpc.ClientConn {
 	// Check the TLS setup
 	certPool := x509.NewCertPool()
 	switch {
-	case c.CAFile != "" || c.ClientCert != "" || c.ClientKey != "":
-		// If one of the three TLS commands is not empty, they all must be not empty
-		if !(c.CAFile != "" && c.ClientCert != "" && c.ClientKey != "") {
-			kingpin.Fatalf("you must supply all three TLS parameters - --cafile, --cert-file, --key-file, or none of them")
-		}
-		// Load the client certificates from disk
-		certificate, err := tls.LoadX509KeyPair(c.ClientCert, c.ClientKey)
-		kingpin.FatalIfError(err, "failed to load certificates from disk")
-		// Create a certificate pool from the certificate authority
-		ca, err := ioutil.ReadFile(c.CAFile)
-		kingpin.FatalIfError(err, "failed to read CA cert")
-
-		// Append the certificates from the CA
-		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			// TODO(nyoung) OMG yuck, thanks for this, crypto/tls. Suggestions on alternates welcomed.
-			kingpin.Fatalf("failed to append CA certs")
-		}
-
-		creds := credentials.NewTLS(&tls.Config{
-			// TODO(youngnick): Does this need to be defaulted with a cli flag to
-			// override?
-			// The ServerName here needs to be one of the SANs available in
-			// the serving cert used by contour serve.
-			ServerName:   "contour",
-			Certificates: []tls.Certificate{certificate},
-			RootCAs:      certPool,
-			MinVersion:   tls.VersionTLS12,
-		})
-		options = append(options, grpc.WithTransportCredentials(creds))
 	case c.LoadContourCertFromCertServer:
 		certBytes, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cert")
 		if err != nil {
@@ -105,10 +76,17 @@ func (c *Client) dial() *grpc.ClientConn {
 			os.Exit(1)
 		}
 		log.Debug("Successfully get client cert and key")
-		ca, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cacert")
-		if err != nil {
-			log.Error(err)
-			kingpin.Fatalf("Failed to get cacert")
+		var ca []byte
+		if c.CAFile != "" {
+			// Create a certificate pool from the certificate authority
+			ca, err = ioutil.ReadFile(c.CAFile)
+			kingpin.FatalIfError(err, "failed to read CA cert")
+		} else {
+			ca, err = contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cacert")
+			if err != nil {
+				log.Error(err)
+				kingpin.Fatalf("Failed to get cacert")
+			}
 		}
 		log.Debug("Successfully get cacert")
 		if ok := certPool.AppendCertsFromPEM(ca); !ok {
@@ -121,6 +99,35 @@ func (c *Client) dial() *grpc.ClientConn {
 			// the serving cert used by contour serve.
 			ServerName:   "contour",
 			Certificates: []tls.Certificate{cert},
+			RootCAs:      certPool,
+			MinVersion:   tls.VersionTLS12,
+		})
+		options = append(options, grpc.WithTransportCredentials(creds))
+	case c.CAFile != "" || c.ClientCert != "" || c.ClientKey != "":
+		// If one of the three TLS commands is not empty, they all must be not empty
+		if !(c.CAFile != "" && c.ClientCert != "" && c.ClientKey != "") {
+			kingpin.Fatalf("you must supply all three TLS parameters - --cafile, --cert-file, --key-file, or none of them")
+		}
+		// Load the client certificates from disk
+		certificate, err := tls.LoadX509KeyPair(c.ClientCert, c.ClientKey)
+		kingpin.FatalIfError(err, "failed to load certificates from disk")
+		// Create a certificate pool from the certificate authority
+		ca, err := ioutil.ReadFile(c.CAFile)
+		kingpin.FatalIfError(err, "failed to read CA cert")
+
+		// Append the certificates from the CA
+		if ok := certPool.AppendCertsFromPEM(ca); !ok {
+			// TODO(nyoung) OMG yuck, thanks for this, crypto/tls. Suggestions on alternates welcomed.
+			kingpin.Fatalf("failed to append CA certs")
+		}
+
+		creds := credentials.NewTLS(&tls.Config{
+			// TODO(youngnick): Does this need to be defaulted with a cli flag to
+			// override?
+			// The ServerName here needs to be one of the SANs available in
+			// the serving cert used by contour serve.
+			ServerName:   "contour",
+			Certificates: []tls.Certificate{certificate},
 			RootCAs:      certPool,
 			MinVersion:   tls.VersionTLS12,
 		})

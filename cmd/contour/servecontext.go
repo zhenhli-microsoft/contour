@@ -226,12 +226,20 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 				return nil, err
 			}
 			log.Debug("Successfully get cert and key")
-			ca, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cacert")
-			if err != nil {
-				log.Fatalf("Failed to get cacert")
-				return nil, err
+			var ca []byte
+			if contourXDSTLS.CAFile != "" {
+				ca, err = ioutil.ReadFile(contourXDSTLS.CAFile)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				ca, err = contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cacert")
+				if err != nil {
+					log.Fatalf("Failed to get cacert: %+v", err)
+					return nil, err
+				}
 			}
-			fmt.Printf("Successfully get cacert")
+			log.Info("Successfully get cacert")
 			if ok := certPool.AppendCertsFromPEM(ca); !ok {
 				return nil, fmt.Errorf("failed to append CA certs")
 			}
@@ -265,10 +273,6 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 // verifyTLSFlags indicates if the TLS flags are set up correctly.
 func verifyTLSFlags(contourXDSTLS *contour_api_v1alpha1.TLS) error {
 	if contourXDSTLS.LoadContourCertFromCertServer {
-		if contourXDSTLS.CAFile != "" || contourXDSTLS.CertFile != "" || contourXDSTLS.KeyFile != "" {
-			return errors.New("no TLS parameters should be supplied when load cert from sidecar")
-		}
-
 		return nil
 	}
 
