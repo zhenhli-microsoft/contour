@@ -201,7 +201,7 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 				return nil, fmt.Errorf("unable to append certificate in %s to CA pool", contourXDSTLS.CAFile)
 			}
 		} else {
-			certBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cert")
+			certBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cert", log)
 			if err != nil {
 				log.Fatalf("Failed to get cert")
 				return nil, err
@@ -211,7 +211,7 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 				log.Fatalf("failed to parse PEM block containing the certificate")
 				return nil, nil
 			}
-			keyBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "key")
+			keyBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "key", log)
 			if err != nil {
 				log.Fatalf("Failed to get key")
 				return nil, err
@@ -225,7 +225,7 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 			if err != nil {
 				return nil, err
 			}
-			log.Debug("Successfully get cert and key")
+			log.Info("Successfully get cert and key")
 			var ca []byte
 			if contourXDSTLS.CAFile != "" {
 				ca, err = ioutil.ReadFile(contourXDSTLS.CAFile)
@@ -233,7 +233,7 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 					return nil, err
 				}
 			} else {
-				ca, err = contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cacert")
+				ca, err = contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cacert", log)
 				if err != nil {
 					log.Fatalf("Failed to get cacert: %+v", err)
 					return nil, err

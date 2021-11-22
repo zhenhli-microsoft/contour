@@ -52,7 +52,7 @@ func (c *Client) dial() *grpc.ClientConn {
 	certPool := x509.NewCertPool()
 	switch {
 	case c.LoadContourCertFromCertServer:
-		certBytes, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cert")
+		certBytes, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cert", log.Base())
 		if err != nil {
 			log.Error(err)
 			kingpin.Fatalf("Failed to get client cert.")
@@ -61,7 +61,7 @@ func (c *Client) dial() *grpc.ClientConn {
 		if certBlock == nil {
 			kingpin.Fatalf("failed to parse PEM block containing the certificate")
 		}
-		keyBytes, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "key")
+		keyBytes, err := contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "key", log.Base())
 		if err != nil {
 			log.Error(err)
 			kingpin.Fatalf("Failed to get client key")
@@ -75,20 +75,20 @@ func (c *Client) dial() *grpc.ClientConn {
 			log.Error(err)
 			os.Exit(1)
 		}
-		log.Debug("Successfully get client cert and key")
+		log.Info("Successfully get client cert and key")
 		var ca []byte
 		if c.CAFile != "" {
 			// Create a certificate pool from the certificate authority
 			ca, err = ioutil.ReadFile(c.CAFile)
 			kingpin.FatalIfError(err, "failed to read CA cert")
 		} else {
-			ca, err = contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cacert")
+			ca, err = contour.GetPemDataFromCertServer(c.CertServerAddr, c.CertServerPort, "cacert", log.Base())
 			if err != nil {
 				log.Error(err)
 				kingpin.Fatalf("Failed to get cacert")
 			}
 		}
-		log.Debug("Successfully get cacert")
+		log.Info("Successfully get cacert")
 		if ok := certPool.AppendCertsFromPEM(ca); !ok {
 			kingpin.Fatalf("failed to append CA certs")
 		}

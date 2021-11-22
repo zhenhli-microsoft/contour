@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,9 +16,14 @@ type PemData struct {
 	Pem string `json:"pem"`
 }
 
+type logger interface {
+	Fatalf(format string, v ...interface{})
+	Infof(string, ...interface{})
+}
+
 // GetPemDataFromCertServer returns []bytes format of certificates via HTTP connection
 // to control plane server.
-func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path string) ([]byte, error) {
+func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path string, log logger) ([]byte, error) {
 	endpoint := "http://" + certServerAddr + ":" + strconv.Itoa(certServerPort) + "/" + path
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -29,7 +33,7 @@ func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path st
 	// use http.DefaultClient to send request with retry mechanism
 	var response *http.Response
 	var pem PemData
-	log.Printf("Attempting to get certificates from certificate loader")
+	log.Infof("Attempting to get certificates from certificate loader")
 	err = retry.OnError(wait.Backoff{
 		Steps:    5,
 		Duration: 1 * time.Second,
@@ -38,7 +42,7 @@ func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path st
 	}, func(err error) bool {
 		return true
 	}, func() error {
-		log.Printf("Attempting to call certificate loader")
+		log.Infof("Attempting to call certificate loader")
 		var err error
 		response, err = http.DefaultClient.Do(req)
 		if err != nil {
