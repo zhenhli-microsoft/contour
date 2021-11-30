@@ -3309,6 +3309,18 @@ string
 <p>Key which is expected to be present in the &lsquo;subjectAltName&rsquo; of the presented certificate</p>
 </td>
 </tr>
+<tr>
+<td style="white-space:nowrap">
+<code>enableSDS</code>
+<br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Whether to fetch secret from SDS server or kubernetes secret resource</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="projectcontour.io/v1.VirtualHost">VirtualHost
@@ -5766,6 +5778,45 @@ bool
 </td>
 <td>
 <p>Allow serving the xDS gRPC API without TLS.</p>
+</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>loadContourCertFromCertServer</code>
+<br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Load contour certificate from certificate server.</p>
+</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>certServerAddr</code>
+<br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Address of the certificate server.</p>
+</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>certServerPort</code>
+<br>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Port of the certificate server.</p>
 </td>
 </tr>
 </tbody>

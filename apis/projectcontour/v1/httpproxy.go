@@ -857,6 +857,8 @@ type UpstreamValidation struct {
 	CACertificate string `json:"caSecret"`
 	// Key which is expected to be present in the 'subjectAltName' of the presented certificate
 	SubjectName string `json:"subjectName"`
+	// Whether to fetch secret from SDS server or kubernetes secret resource
+	EnableSDS bool `json:"enableSDS,omitempty"`
 }
 
 // DownstreamValidation defines how to verify the client certificate.

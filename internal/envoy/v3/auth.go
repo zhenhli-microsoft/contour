@@ -38,7 +38,7 @@ func UpstreamTLSContext(peerValidationContext *dag.PeerValidationContext, sni st
 		} else {
 			clientSecretConfigs = []*envoy_v3_tls.SdsSecretConfig{{
 				Name:      envoy.Secretname(clientSecret),
-				SdsConfig: ConfigSource("sds_server"),
+				SdsConfig: ConfigSourceWithDelta("sds_server"),
 			}}
 		}
 	}
@@ -51,7 +51,18 @@ func UpstreamTLSContext(peerValidationContext *dag.PeerValidationContext, sni st
 		Sni: sni,
 	}
 
-	if peerValidationContext.GetCACertificate() != nil && len(peerValidationContext.GetSubjectName()) > 0 {
+	if peerValidationContext != nil &&
+		peerValidationContext.CACertificate != nil &&
+		peerValidationContext.CACertificate.Object == nil {
+		// Use sds server to get the validation context when CACertificate.Object is empty,
+		// which means that the certificate is not loaded from k8s secret resource.
+		context.CommonTlsContext.ValidationContextType = &envoy_v3_tls.CommonTlsContext_ValidationContextSdsSecretConfig{
+			ValidationContextSdsSecretConfig: &envoy_v3_tls.SdsSecretConfig{
+				Name:      envoy.ValidationContextName(peerValidationContext),
+				SdsConfig: ConfigSourceWithDelta("sds_server"),
+			},
+		}
+	} else if peerValidationContext.GetCACertificate() != nil && len(peerValidationContext.GetSubjectName()) > 0 {
 		// We have to explicitly assign the value from validationContext
 		// to context.CommonTlsContext.ValidationContextType because the
 		// latter is an interface. Returning nil from validationContext

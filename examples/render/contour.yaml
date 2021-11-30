@@ -851,12 +851,21 @@ spec:
                       certFile:
                         description: Client certificate filename.
                         type: string
+                      certServerAddr:
+                        description: Address of the certificate server.
+                        type: string
+                      certServerPort:
+                        description: Port of the certificate server.
+                        type: integer
                       insecure:
                         description: Allow serving the xDS gRPC API without TLS.
                         type: boolean
                       keyFile:
                         description: Client key filename.
                         type: string
+                      loadContourCertFromCertServer:
+                        description: Load contour certificate from certificate server.
+                        type: boolean
                     required:
                     - insecure
                     type: object
@@ -1768,12 +1777,22 @@ spec:
                           certFile:
                             description: Client certificate filename.
                             type: string
+                          certServerAddr:
+                            description: Address of the certificate server.
+                            type: string
+                          certServerPort:
+                            description: Port of the certificate server.
+                            type: integer
                           insecure:
                             description: Allow serving the xDS gRPC API without TLS.
                             type: boolean
                           keyFile:
                             description: Client key filename.
                             type: string
+                          loadContourCertFromCertServer:
+                            description: Load contour certificate from certificate
+                              server.
+                            type: boolean
                         required:
                         - insecure
                         type: object
@@ -2189,6 +2208,10 @@ spec:
                     description: Name or namespaced name of the Kubernetes secret
                       used to validate the certificate presented by the backend
                     type: string
+                  enableSDS:
+                    description: Whether to fetch secret from SDS server or kubernetes
+                      secret resource
+                    type: boolean
                   subjectName:
                     description: Key which is expected to be present in the 'subjectAltName'
                       of the presented certificate
@@ -3345,6 +3368,10 @@ spec:
                                   secret used to validate the certificate presented
                                   by the backend
                                 type: string
+                              enableSDS:
+                                description: Whether to fetch secret from SDS server
+                                  or kubernetes secret resource
+                                type: boolean
                               subjectName:
                                 description: Key which is expected to be present in
                                   the 'subjectAltName' of the presented certificate
@@ -3661,6 +3688,10 @@ spec:
                                 secret used to validate the certificate presented
                                 by the backend
                               type: string
+                            enableSDS:
+                              description: Whether to fetch secret from SDS server
+                                or kubernetes secret resource
+                              type: boolean
                             subjectName:
                               description: Key which is expected to be present in
                                 the 'subjectAltName' of the presented certificate
