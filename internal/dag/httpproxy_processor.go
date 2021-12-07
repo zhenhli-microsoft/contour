@@ -624,7 +624,8 @@ func (p *HTTPProxyProcessor) computeRoutes(
 						CACertificate: &Secret{
 							CertName: service.UpstreamValidation.CACertificate,
 						},
-						SubjectName: service.UpstreamValidation.SubjectName,
+						SubjectName:           service.UpstreamValidation.SubjectName,
+						CRLDistributionPoints: service.UpstreamValidation.CRLDistributionPoints,
 					}
 				} else {
 					// If the CACertificate name in the UpstreamValidation is namespaced and the namespace

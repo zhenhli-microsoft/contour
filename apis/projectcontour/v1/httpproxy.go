@@ -859,6 +859,8 @@ type UpstreamValidation struct {
 	SubjectName string `json:"subjectName"`
 	// Whether to fetch secret from SDS server or kubernetes secret resource
 	EnableSDS bool `json:"enableSDS,omitempty"`
+	// CRL Distribution Points of the leaf cert. Only effective if "EnableSDS" is true.
+	CRLDistributionPoints []string `json:"crlDistributionPoints,omitempty"`
 }
 
 // DownstreamValidation defines how to verify the client certificate.

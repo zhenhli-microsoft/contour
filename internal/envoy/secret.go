@@ -29,9 +29,10 @@ const (
 )
 
 type SecretName struct {
-	Type     int    `json:"type"`
-	CertName string `json:"certname"`
-	San      string `json:"san,omitempty"`
+	Type                  int      `json:"type"`
+	CertName              string   `json:"certname"`
+	San                   string   `json:"san,omitempty"`
+	CRLDistributionPoints []string `json:"crlDistributionPoints,omitempty"`
 }
 
 func EncodeSecretName(s SecretName) string {
@@ -78,8 +79,9 @@ func Secretname(s *dag.Secret) string {
 
 func ValidationContextName(vc *dag.PeerValidationContext) string {
 	return EncodeSecretName(SecretName{
-		Type:     SecretTypeValidationContext,
-		CertName: vc.CACertificate.CertName,
-		San:      vc.SubjectName,
+		Type:                  SecretTypeValidationContext,
+		CertName:              vc.CACertificate.CertName,
+		San:                   vc.SubjectName,
+		CRLDistributionPoints: vc.CRLDistributionPoints,
 	})
 }

@@ -2211,6 +2211,12 @@ spec:
                     description: Name or namespaced name of the Kubernetes secret
                       used to validate the certificate presented by the backend
                     type: string
+                  crlDistributionPoints:
+                    description: CRL Distribution Points of the leaf cert. Only effective
+                      if "EnableSDS" is true.
+                    items:
+                      type: string
+                    type: array
                   enableSDS:
                     description: Whether to fetch secret from SDS server or kubernetes
                       secret resource
@@ -3371,6 +3377,12 @@ spec:
                                   secret used to validate the certificate presented
                                   by the backend
                                 type: string
+                              crlDistributionPoints:
+                                description: CRL Distribution Points of the leaf cert.
+                                  Only effective if "EnableSDS" is true.
+                                items:
+                                  type: string
+                                type: array
                               enableSDS:
                                 description: Whether to fetch secret from SDS server
                                   or kubernetes secret resource
@@ -3691,6 +3703,12 @@ spec:
                                 secret used to validate the certificate presented
                                 by the backend
                               type: string
+                            crlDistributionPoints:
+                              description: CRL Distribution Points of the leaf cert.
+                                Only effective if "EnableSDS" is true.
+                              items:
+                                type: string
+                              type: array
                             enableSDS:
                               description: Whether to fetch secret from SDS server
                                 or kubernetes secret resource
