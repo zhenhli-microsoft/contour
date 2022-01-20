@@ -203,23 +203,24 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 		} else {
 			certBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cert", log)
 			if err != nil {
-				log.Fatalf("Failed to get cert")
+				log.Errorf("Failed to get cert")
 				return nil, err
 			}
 			certBlock, _ := pem.Decode(certBytes)
 			if certBlock == nil {
-				log.Fatalf("failed to parse PEM block containing the certificate")
+				log.Errorf("failed to parse PEM block containing the certificate")
 				return nil, nil
 			}
 			keyBytes, err := contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "key", log)
 			if err != nil {
-				log.Fatalf("Failed to get key")
+				log.Errorf("Failed to get key")
 				return nil, err
 			}
 			keyBlock, _ := pem.Decode(keyBytes)
 			if keyBlock == nil {
-				log.Fatalf("failed to parse PEM block containing the key")
-				return nil, nil
+				err := fmt.Errorf("failed to parse PEM block containing the key")
+				log.Error(err)
+				return nil, err
 			}
 			cert, err = tls.X509KeyPair(certBytes, keyBytes)
 			if err != nil {
@@ -235,7 +236,7 @@ func tlsconfig(log logrus.FieldLogger, contourXDSTLS *contour_api_v1alpha1.TLS) 
 			} else {
 				ca, err = contour.GetPemDataFromCertServer(contourXDSTLS.CertServerAddr, contourXDSTLS.CertServerPort, "cacert", log)
 				if err != nil {
-					log.Fatalf("Failed to get cacert: %+v", err)
+					log.Errorf("Failed to get cacert: %+v", err)
 					return nil, err
 				}
 			}

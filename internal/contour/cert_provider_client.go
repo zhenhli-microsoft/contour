@@ -17,8 +17,11 @@ type PemData struct {
 }
 
 type logger interface {
-	Fatalf(format string, v ...interface{})
+	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
+	Warnf(string, ...interface{})
+	Errorf(string, ...interface{})
+	Fatalf(string, ...interface{})
 }
 
 // GetPemDataFromCertServer returns []bytes format of certificates via HTTP connection
@@ -27,7 +30,7 @@ func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path st
 	endpoint := "http://" + certServerAddr + ":" + strconv.Itoa(certServerPort) + "/" + path
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		log.Fatalf("Error Occured. %+v", err)
+		log.Errorf("Error Occured. %+v", err)
 		return nil, err
 	}
 	// use http.DefaultClient to send request with retry mechanism
@@ -46,7 +49,7 @@ func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path st
 		var err error
 		response, err = http.DefaultClient.Do(req)
 		if err != nil {
-			log.Fatalf("Failed to call certificate loader.")
+			log.Errorf("Failed to call certificate loader.")
 			return err
 		}
 		// Close the connection to reuse it
@@ -59,12 +62,12 @@ func GetPemDataFromCertServer(certServerAddr string, certServerPort int, path st
 				bodyString = fmt.Sprintf("error reading response body: %+v", err)
 			}
 			err = fmt.Errorf("got %+v when seding request to endpoint %+v, response body: %+v", response.StatusCode, endpoint, bodyString)
-			log.Fatalf("Error Occured. %+v", err)
+			log.Errorf("Error Occured. %+v", err)
 			return err
 		}
 		err = json.NewDecoder(response.Body).Decode(&pem)
 		if err != nil {
-			log.Fatalf("Couldn't parse response body to json: %+v", err)
+			log.Errorf("Couldn't parse response body to json: %+v", err)
 			return err
 		}
 		return nil
